@@ -55,12 +55,14 @@ st.markdown("""
     /* 材料卡片：移动端增加自适应间距 */
     .material-card {
         background-color: white; 
-        padding: 20px; 
+        padding: 25px; 
         border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-        border-left: 5px solid #D4AF37; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+        border-left: 6px solid #D4AF37; 
         margin-top: 15px;
         color: #333333 !important;
+        position: relative;
+        overflow: hidden;
     }
     
     /* 政策标签样式 */
@@ -141,7 +143,7 @@ CITIES = {
     "新加坡":"Asia/Singapore", "曼谷":"Asia/Bangkok", "吉隆坡":"Asia/Kuala_Lumpur", "迪拜":"Asia/Dubai", "伦敦":"Europe/London", 
     "巴黎":"Europe/Paris", "柏林":"Europe/Berlin", "罗马":"Europe/Rome", "马德里":"Europe/Madrid", "莫斯科":"Europe/Moscow", 
     "苏黎世":"Europe/Zurich", "纽约":"America/New_York", "洛杉矶":"America/Los_Angeles", "多伦多":"America/Toronto", "温哥华":"America/Vancouver", 
-    "悉悉尼":"Australia/Sydney", "墨尔本":"Australia/Melbourne", "奥克兰":"Pacific/Auckland", "新德里":"Asia/Kolkata", "伊斯坦布尔":"Europe/Istanbul",
+    "悉尼":"Australia/Sydney", "墨尔本":"Australia/Melbourne", "奥克兰":"Pacific/Auckland", "新德里":"Asia/Kolkata", "伊斯坦布尔":"Europe/Istanbul",
     "开罗":"Africa/Cairo", "约翰内斯堡":"Africa/Johannesburg", "雅典":"Europe/Athens", "阿姆斯特丹":"Europe/Amsterdam", "芝加哥":"America/Chicago"
 }
 
@@ -252,10 +254,21 @@ if menu == "🛂 签证/入境材料查询":
     st.markdown(f'<div class="policy-tag" style="background-color:{bg_color}; color:{text_color};">{policy_desc}</div>', unsafe_allow_html=True)
 
     st.markdown(f"### {country} ({v_type}) 材料清单")
-    st.markdown('<div class="material-card">', unsafe_allow_html=True)
+    
+    # 修复代码块解析 Bug，去除了缩进，确保正确渲染 HTML 而不是显示源代码
+    items_html = ""
     for i, item in enumerate(data, 1):
-        st.write(f"**{i}.** {item}")
-    st.markdown('</div>', unsafe_allow_html=True)
+        items_html += f"""<div style="display: flex; margin-bottom: 15px; align-items: flex-start;">
+<div style="background-color: #D4AF37; color: white; border-radius: 50%; width: 26px; height: 26px; display: flex; justify-content: center; align-items: center; font-size: 13px; font-weight: bold; margin-right: 12px; flex-shrink: 0; box-shadow: 0 2px 5px rgba(212, 175, 55, 0.4);">{i}</div>
+<div style="color: #333; line-height: 1.6; font-size: 15px; padding-top: 2px;">{item}</div>
+</div>"""
+        
+    card_html = f"""<div class="material-card" style="background-image: linear-gradient(to bottom right, #ffffff, #fdfaf2);">
+<div style="position: absolute; top: -15px; right: -15px; font-size: 100px; opacity: 0.04; transform: rotate(15deg); pointer-events: none;">✈️</div>
+{items_html}
+</div>"""
+    st.markdown(card_html, unsafe_allow_html=True)
+    st.write("") # 增加一点底部间距
 
     try:
         pdf_title = f"{country}{v_type}材料清单" if p_type != "FREE" else f"{country}入境查验材料"
@@ -277,23 +290,54 @@ if menu == "🛂 签证/入境材料查询":
         st.error(f"PDF 系统配置中: {e}")
 
 # ==========================================
-# 模块二：实时汇率换算
+# 模块二：全球主流货币换算 (支持任意互换)
 # ==========================================
 elif menu == "💱 实时汇率换算":
-    st.header(f"💱 全球 {len(CURRENCIES)} 种货币换算")
+    st.header("💱 全球主流货币换算")
+    
+    # 建立会话状态，用于绑定货币互换
+    if 'base_curr' not in st.session_state:
+        st.session_state.base_curr = 'CNY'
+    if 'target_curr' not in st.session_state:
+        st.session_state.target_curr = 'USD'
+        
+    def swap_currencies():
+        # 执行两个选择框的值互换
+        st.session_state.base_curr, st.session_state.target_curr = st.session_state.target_curr, st.session_state.base_curr
+
+    # 使用列进行布局
+    c1, c2, c3, c4 = st.columns([2.5, 3.5, 1, 3.5])
+    with c1: 
+        amt = st.number_input("输入金额", value=100.0, min_value=0.0)
+    with c2: 
+        base = st.selectbox("持有货币", sorted(list(CURRENCIES.keys())), key="base_curr", format_func=lambda x: f"{x} - {CURRENCIES[x]}")
+    with c3: 
+        st.markdown("<div style='margin-top: 29px;'></div>", unsafe_allow_html=True)
+        st.button("🔄", on_click=swap_currencies, help="点击互换货币", use_container_width=True)
+    with c4: 
+        target = st.selectbox("目标货币", sorted(list(CURRENCIES.keys())), key="target_curr", format_func=lambda x: f"{x} - {CURRENCIES[x]}")
+        
     try:
-        rates = requests.get("https://api.exchangerate-api.com/v4/latest/CNY").json()['rates']
-        c1, c2 = st.columns(2)
-        with c1: amt = st.number_input("金额 (CNY)", value=100.0)
-        with c2: target = st.selectbox("目标货币", sorted(list(CURRENCIES.keys())), format_func=lambda x: f"{x} - {CURRENCIES[x]}")
-        st.metric("结果", f"{amt * rates.get(target, 0):,.2f} {target}")
-    except: st.warning("数据接口连接中...")
+        # 获取基础货币的最新汇率
+        rates = requests.get(f"https://api.exchangerate-api.com/v4/latest/{base}").json()['rates']
+        target_rate = rates.get(target, 0)
+        converted_amt = amt * target_rate
+        
+        # 黄金质感的美化结果卡片
+        result_html = f"""<div style="padding: 20px; background-color: white; border-radius: 12px; border-left: 6px solid #D4AF37; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-top: 15px;">
+<p style="font-size: 15px; color: #666; margin-bottom: 5px;">换算结果</p>
+<h2 style="color: #D4AF37; margin: 0; font-size: 32px;">{converted_amt:,.2f} <span style="font-size: 20px; color: #333;">{target}</span></h2>
+<p style="font-size: 13px; color: #999; margin-top: 10px; margin-bottom: 0;">参考汇率: 1 {base} = {target_rate} {target}</p>
+</div>"""
+        st.markdown(result_html, unsafe_allow_html=True)
+    except: 
+        st.warning("正在获取最新汇率数据...")
 
 # ==========================================
-# 模块三：全球时差查询
+# 模块三：全球主要城市时间
 # ==========================================
 elif menu == "⏰ 全球时差查询":
-    st.header(f"⏰ 全球 {len(CITIES)} 个重点城市时间")
+    st.header("⏰ 全球主要城市时间")
     city = st.selectbox("搜索城市", sorted(list(CITIES.keys())))
     bj = datetime.now(pytz.timezone("Asia/Shanghai"))
     ct = datetime.now(pytz.timezone(CITIES[city]))
