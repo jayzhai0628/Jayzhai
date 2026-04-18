@@ -148,41 +148,29 @@ CITIES = {
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 
 # ==========================================
-# 4. PDF 生成逻辑 (双重校验加载抬头图片)
+# 4. PDF 生成逻辑 (带防呆云端报错机制)
 # ==========================================
 def generate_pdf(title_text, items):
     pdf = FPDF()
     pdf.add_page()
     
-    # 智能寻找本地存在的抬头图片文件，双重路径校验确保不会丢失
     base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, "simsun.ttf")
     
-    logo_path = None
-    # 优先匹配您截图中的文件名
-    possible_logo_names = ["image_743d5f.jpg", "image_fed5fe.jpg", "logo.jpg", "logo.png"]
-    
-    for img_name in possible_logo_names:
-        # 1. 先尝试相对路径（适用于直接在同级目录运行终端）
-        if os.path.exists(img_name):
-            logo_path = img_name
-            break
-        # 2. 再尝试绝对路径（适用于跨目录执行脚本）
-        abs_path = os.path.join(base_dir, img_name)
-        if os.path.exists(abs_path):
-            logo_path = abs_path
-            break
+    # 强制锁定此文件名
+    logo_path = os.path.join(base_dir, "image_743d5f.jpg")
+    warning_msg = None
             
-    # 插入图片抬头
-    if logo_path:
+    # 图片云端加载诊断逻辑
+    if os.path.exists(logo_path):
         try:
             pdf.image(logo_path, x=0, y=0, w=210)
             pdf.set_y(38) # 图片加载成功，游标下移避开图片区域
         except Exception as e: 
-            print(f"!!! 图片加载异常: {e} !!!")
+            warning_msg = f"⚠️ 图片存在但云端服务器解析失败！错误代码：{e}。解决办法：请务必在您的 requirements.txt 中加上 Pillow 这行字，然后重新部署。"
             pdf.set_y(15)
     else: 
-        print("!!! 未能在文件夹中找到抬头图片，跳过渲染 !!!")
+        warning_msg = "⚠️ 云端服务器未找到图片 image_743d5f.jpg，请检查是否已推送到线上代码库中，且大小写必须完全一致！"
         pdf.set_y(15)
 
     # 设置字体
@@ -195,7 +183,7 @@ def generate_pdf(title_text, items):
     # 文本颜色为黑色，不渲染公司名称文字
     pdf.set_text_color(0, 0, 0)
     
-    # 黑色渲染清单小标题 (如：丹麦旅游签材料清单)
+    # 黑色渲染清单小标题
     pdf.set_font("SimSun", size=14)
     pdf.cell(w=0, h=10, text=title_text, align='C', new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
@@ -207,13 +195,12 @@ def generate_pdf(title_text, items):
         pdf.multi_cell(w=160, h=8, text=f"{idx}. {item}")
         pdf.ln(1)
         
-    return bytes(pdf.output())
+    return bytes(pdf.output()), warning_msg
 
 # ==========================================
 # 5. 主界面逻辑
 # ==========================================
 st.sidebar.markdown("# 🏆 功能中心")
-# 恢复为原来的3个菜单
 menu = st.sidebar.radio(
     "请选择操作项目：", 
     ["🛂 签证/入境材料查询", "💱 实时汇率换算", "⏰ 全球时差查询"]
@@ -247,7 +234,14 @@ if menu == "🛂 签证/入境材料查询":
 
     try:
         pdf_title = f"{country}{v_type}材料清单" if p_type != "FREE" else f"{country}入境查验材料"
-        pdf_data = generate_pdf(pdf_title, data)
+        
+        # 接收并处理生成的 PDF 与警告信息
+        pdf_data, warning_msg = generate_pdf(pdf_title, data)
+        
+        # 如果存在云端错误，在下载按钮上方显示醒目提示
+        if warning_msg:
+            st.warning(warning_msg, icon="⚠️")
+            
         st.download_button(
             label="📥 一键下载材料清单", 
             data=pdf_data, 
