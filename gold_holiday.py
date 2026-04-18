@@ -6,14 +6,6 @@ from fpdf import FPDF
 import io
 import os
 
-# --- 新增：尝试导入地图渲染库 ---
-try:
-    import plotly.express as px
-    import pandas as pd
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    PLOTLY_AVAILABLE = False
-
 # --- 1. 页面配置 ---
 st.set_page_config(
     page_title="广州市黄金假日国际旅行社有限公司", 
@@ -80,17 +72,6 @@ st.markdown("""
         margin-bottom: 15px; 
         display: inline-block;
         line-height: 1.4;
-    }
-
-    /* 情报卡片样式 */
-    .info-box {
-        background-color: white;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #e0e0e0;
-        border-top: 4px solid #D4AF37;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        height: 100%;
     }
     
     /* 适配 Streamlit 默认文字 */
@@ -166,28 +147,6 @@ CITIES = {
 
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 
-# 新增：国家信息元数据（用于地图联动及多模块一站式查询）
-def get_country_meta(country):
-    # 格式: 国家 -> (默认货币代码, 默认时区城市, ISO-3缩写)
-    meta = {
-        "美国": ("USD", "纽约", "USA"), "英国": ("GBP", "伦敦", "GBR"), "日本": ("JPY", "东京", "JPN"),
-        "澳大利亚": ("AUD", "悉尼", "AUS"), "法国": ("EUR", "巴黎", "FRA"), "德国": ("EUR", "柏林", "DEU"),
-        "意大利": ("EUR", "罗马", "ITA"), "新加坡": ("SGD", "新加坡", "SGP"), "泰国": ("THB", "曼谷", "THA"),
-        "马来西亚": ("MYR", "吉隆坡", "MYS"), "韩国": ("KRW", "首尔", "KOR"), "加拿大": ("CAD", "多伦多", "CAN"),
-        "阿联酋": ("AED", "迪拜", "ARE"), "俄罗斯": ("RUB", "莫斯科", "RUS"), "新西兰": ("NZD", "奥克兰", "NZL"),
-        "瑞士": ("CHF", "苏黎世", "CHE"), "埃及": ("EGP", "开罗", "EGY"), "南非": ("ZAR", "约翰内斯堡", "ZAF"),
-        "西班牙": ("EUR", "马德里", "ESP"), "希腊": ("EUR", "雅典", "GRC"), "荷兰": ("EUR", "阿姆斯特丹", "NLD"),
-        "印度": ("INR", "新德里", "IND"), "印尼": ("IDR", "吉隆坡", "IDN"), "菲律宾": ("PHP", "北京/上海", "PHL"),
-        "越南": ("VND", "曼谷", "VNM"), "土耳其": ("TRY", "伊斯坦布尔", "TUR"), "沙特": ("SAR", "迪拜", "SAU"),
-        "卡塔尔": ("QAR", "多哈", "QAT"), "阿根廷": ("AR_S", "巴西利亚", "ARG"), "巴西": ("BRL", "巴西利亚", "BRA"),
-        "墨西哥": ("MXN", "芝加哥", "MEX"), "丹麦": ("DKK", "柏林", "DNK"), "瑞典": ("SEK", "柏林", "SWE"),
-        "葡萄牙": ("EUR", "伦敦", "PRT"), "爱尔兰": ("EUR", "伦敦", "IRL"), "以色列": ("ILS", "雅典", "ISR"),
-        "芬兰": ("EUR", "雅典", "FIN"), "波兰": ("PLN", "柏林", "POL"), "捷克": ("CZK", "柏林", "CZE"),
-        "比利时": ("EUR", "巴黎", "BEL"), "奥地利": ("EUR", "柏林", "AUT"), "柬埔寨": ("USD", "曼谷", "KHM"),
-        "尼泊尔": ("NPR", "新德里", "NPL"), "斯里兰卡": ("LKR", "新德里", "LKA")
-    }
-    return meta.get(country, ("USD", "北京/上海", None))
-
 # ==========================================
 # 4. PDF 生成逻辑 (无黄色抬头，确保黑色正式文字)
 # ==========================================
@@ -233,10 +192,10 @@ def generate_pdf(title_text, items):
 # 5. 主界面逻辑
 # ==========================================
 st.sidebar.markdown("# 🏆 功能中心")
-# ★★★ 完全保留原来的 3 个菜单，新增了第 4 个“全球地图”选项 ★★★
+# 恢复为原来的3个菜单
 menu = st.sidebar.radio(
     "请选择操作项目：", 
-    ["🌍 全球地图与情报", "🛂 签证/入境材料查询", "💱 实时汇率换算", "⏰ 全球时差查询"]
+    ["🛂 签证/入境材料查询", "💱 实时汇率换算", "⏰ 全球时差查询"]
 )
 st.sidebar.divider()
 st.sidebar.caption("© 2026 广州市黄金假日")
@@ -244,97 +203,10 @@ st.sidebar.caption("© 2026 广州市黄金假日")
 st.title("✈️ 广州市黄金假日国际旅行社有限公司")
 st.markdown('<hr style="border: none; height: 3px; background-image: linear-gradient(to right, transparent, #D4AF37, transparent); margin-top: -10px; margin-bottom: 30px;">', unsafe_allow_html=True)
 
-
 # ==========================================
-# 模块一：新增的全球地图与情报 (完全独立的模块)
+# 模块一：保留的原功能 - 签证/入境材料查询
 # ==========================================
-if menu == "🌍 全球地图与情报":
-    st.header("🌍 全球签证地图与国家全景情报")
-    
-    # 渲染交互式地图
-    if PLOTLY_AVAILABLE:
-        map_data = []
-        for c in COUNTRIES_LIST:
-            _, _, iso = get_country_meta(c)
-            if iso:
-                _, _, p_type = get_verified_db(c, "旅游签", "在职人员")
-                policy_label = "互免签证" if p_type == "FREE" else "落地签/电子签" if p_type == "ARRIVAL" else "需办签证"
-                map_data.append({"Country": c, "ISO": iso, "Policy": policy_label})
-                
-        df = pd.DataFrame(map_data)
-        
-        fig = px.choropleth(
-            df, 
-            locations="ISO", 
-            color="Policy", 
-            hover_name="Country",
-            color_discrete_map={
-                "互免签证": "#28a745", 
-                "落地签/电子签": "#ffc107", 
-                "需办签证": "#007bff"
-            },
-            projection="natural earth"
-        )
-        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("💡 提示：系统检测到未安装 `plotly` 和 `pandas`，无法显示地图。请在终端执行 `pip install plotly pandas`。下方的全景情报仍可正常使用。")
-        st.write("")
-
-    # 一站式全景情报面板
-    st.markdown("### 🔍 国家全景情报查询")
-    st.markdown("👉 请在下方选择国家，即可**一站式获取**该国的签证、汇率与时差信息。")
-    
-    selected_country = st.selectbox("📌 请选择查询国家", sorted(COUNTRIES_LIST))
-    
-    # 获取三项数据
-    cur_code, city_name, _ = get_country_meta(selected_country)
-    policy_desc, _, p_type = get_verified_db(selected_country, "旅游签", "在职人员")
-    
-    rate_val = "正在请求接口..."
-    try:
-        rates = requests.get("https://api.exchangerate-api.com/v4/latest/CNY").json()['rates']
-        rate_val = f"{rates.get(cur_code, 0):,.2f} {cur_code}"
-    except:
-        rate_val = "暂无数据"
-        
-    tz_str = CITIES.get(city_name, "Asia/Shanghai")
-    ct = datetime.now(pytz.timezone(tz_str))
-    time_str = ct.strftime('%H:%M  (%m月%d日)')
-
-    st.write("")
-    ic1, ic2, ic3 = st.columns(3)
-    
-    with ic1:
-        st.markdown(f"""
-        <div class="info-box">
-            <h4 style="color:#1E3A5F; margin-top:0;">🛂 签证政策</h4>
-            <p style="font-size: 14px;"><strong>{selected_country}</strong><br><br>{policy_desc}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with ic2:
-        st.markdown(f"""
-        <div class="info-box">
-            <h4 style="color:#1E3A5F; margin-top:0;">💱 实时汇率</h4>
-            <p style="font-size: 14px;"><strong>基准：100 人民币 (CNY)</strong><br><br>可兑换：<b style="color:#D4AF37; font-size:16px;">{rate_val}</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with ic3:
-        st.markdown(f"""
-        <div class="info-box">
-            <h4 style="color:#1E3A5F; margin-top:0;">⏰ 当地时间</h4>
-            <p style="font-size: 14px;"><strong>参考城市：{city_name}</strong><br><br>当地时间：<b style="color:#D4AF37; font-size:16px;">{time_str}</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-# ==========================================
-# 模块二：保留的原功能 - 签证/入境材料查询
-# ==========================================
-elif menu == "🛂 签证/入境材料查询":
+if menu == "🛂 签证/入境材料查询":
     c1, c2, c3 = st.columns(3)
     with c1: country = st.selectbox("📌 选择目的地", sorted(COUNTRIES_LIST))
     with c2: v_type = st.selectbox("🎫 签证类型", ["旅游签", "商务签", "探亲签"])
@@ -364,9 +236,8 @@ elif menu == "🛂 签证/入境材料查询":
     except Exception as e:
         st.error(f"PDF 系统配置中: {e}")
 
-
 # ==========================================
-# 模块三：保留的原功能 - 实时汇率换算
+# 模块二：保留的原功能 - 实时汇率换算
 # ==========================================
 elif menu == "💱 实时汇率换算":
     st.header(f"💱 全球 {len(CURRENCIES)} 种货币换算")
@@ -378,9 +249,8 @@ elif menu == "💱 实时汇率换算":
         st.metric("结果", f"{amt * rates.get(target, 0):,.2f} {target}")
     except: st.warning("数据接口连接中...")
 
-
 # ==========================================
-# 模块四：保留的原功能 - 全球时差查询
+# 模块三：保留的原功能 - 全球时差查询
 # ==========================================
 elif menu == "⏰ 全球时差查询":
     st.header(f"⏰ 全球 {len(CITIES)} 个重点城市时间")
