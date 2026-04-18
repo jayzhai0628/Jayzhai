@@ -148,49 +148,59 @@ CITIES = {
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 
 # ==========================================
-# 4. PDF 生成逻辑 (仅保留图片抬头，移除公司文字)
+# 4. PDF 生成逻辑 (双重校验加载抬头图片)
 # ==========================================
 def generate_pdf(title_text, items):
     pdf = FPDF()
     pdf.add_page()
+    
+    # 智能寻找本地存在的抬头图片文件，双重路径校验确保不会丢失
     base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, "simsun.ttf")
     
-    # 智能寻找本地存在的抬头图片文件，防止文件名变更导致图片消失
     logo_path = None
-    possible_logo_names = ["image_fed5fe.jpg", "image_743d5f.jpg", "logo.jpg", "logo.png", "header.jpg", "header.png"]
+    # 优先匹配您截图中的文件名
+    possible_logo_names = ["image_743d5f.jpg", "image_fed5fe.jpg", "logo.jpg", "logo.png"]
+    
     for img_name in possible_logo_names:
-        temp_path = os.path.join(base_dir, img_name)
-        if os.path.exists(temp_path):
-            logo_path = temp_path
+        # 1. 先尝试相对路径（适用于直接在同级目录运行终端）
+        if os.path.exists(img_name):
+            logo_path = img_name
+            break
+        # 2. 再尝试绝对路径（适用于跨目录执行脚本）
+        abs_path = os.path.join(base_dir, img_name)
+        if os.path.exists(abs_path):
+            logo_path = abs_path
             break
             
-    # 1. 尝试插入图片抬头 (保留图片)
+    # 插入图片抬头
     if logo_path:
         try:
             pdf.image(logo_path, x=0, y=0, w=210)
-            pdf.set_y(35) # 为下方文字留出空间
+            pdf.set_y(38) # 图片加载成功，游标下移避开图片区域
         except Exception as e: 
-            print(f"图片加载失败: {e}")
-            pdf.ln(15)
+            print(f"!!! 图片加载异常: {e} !!!")
+            pdf.set_y(15)
     else: 
-        pdf.ln(15)
+        print("!!! 未能在文件夹中找到抬头图片，跳过渲染 !!!")
+        pdf.set_y(15)
 
-    # 2. 设置字体
+    # 设置字体
     if os.path.exists(font_path):
         pdf.add_font("SimSun", style="", fname=font_path)
         pdf.set_font("SimSun", size=18)
-    else: pdf.set_font("Helvetica", size=18)
+    else: 
+        pdf.set_font("Helvetica", size=18)
 
-    # 3. 确保文本颜色为黑色 (公司文字抬头已移除)
+    # 文本颜色为黑色，不渲染公司名称文字
     pdf.set_text_color(0, 0, 0)
     
-    # 4. 黑色渲染清单小标题
+    # 黑色渲染清单小标题 (如：丹麦旅游签材料清单)
     pdf.set_font("SimSun", size=14)
     pdf.cell(w=0, h=10, text=title_text, align='C', new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
 
-    # 5. 渲染带序号列表
+    # 渲染带序号的具体材料列表
     pdf.set_font("SimSun", size=11)
     pdf.set_left_margin(25)
     for idx, item in enumerate(items, 1):
@@ -215,7 +225,7 @@ st.title("✈️ 广州市黄金假日国际旅行社有限公司")
 st.markdown('<hr style="border: none; height: 3px; background-image: linear-gradient(to right, transparent, #D4AF37, transparent); margin-top: -10px; margin-bottom: 30px;">', unsafe_allow_html=True)
 
 # ==========================================
-# 模块一：保留的原功能 - 签证/入境材料查询
+# 模块一：签证/入境材料查询
 # ==========================================
 if menu == "🛂 签证/入境材料查询":
     c1, c2, c3 = st.columns(3)
@@ -248,7 +258,7 @@ if menu == "🛂 签证/入境材料查询":
         st.error(f"PDF 系统配置中: {e}")
 
 # ==========================================
-# 模块二：保留的原功能 - 实时汇率换算
+# 模块二：实时汇率换算
 # ==========================================
 elif menu == "💱 实时汇率换算":
     st.header(f"💱 全球 {len(CURRENCIES)} 种货币换算")
@@ -261,7 +271,7 @@ elif menu == "💱 实时汇率换算":
     except: st.warning("数据接口连接中...")
 
 # ==========================================
-# 模块三：保留的原功能 - 全球时差查询
+# 模块三：全球时差查询
 # ==========================================
 elif menu == "⏰ 全球时差查询":
     st.header(f"⏰ 全球 {len(CITIES)} 个重点城市时间")
