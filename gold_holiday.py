@@ -148,7 +148,7 @@ CITIES = {
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 
 # ==========================================
-# 4. PDF 生成逻辑 (带有公司文字抬头)
+# 4. PDF 生成逻辑 (仅保留图片抬头，移除公司文字)
 # ==========================================
 def generate_pdf(title_text, items):
     pdf = FPDF()
@@ -157,7 +157,7 @@ def generate_pdf(title_text, items):
     font_path = os.path.join(base_dir, "simsun.ttf")
     logo_path = os.path.join(base_dir, "image_743d5f.jpg")
     
-    # 1. 尝试插入图片抬头
+    # 1. 尝试插入图片抬头 (保留图片)
     if os.path.exists(logo_path):
         try:
             pdf.image(logo_path, x=0, y=0, w=210)
@@ -171,10 +171,8 @@ def generate_pdf(title_text, items):
         pdf.set_font("SimSun", size=18)
     else: pdf.set_font("Helvetica", size=18)
 
-    # 3. 确保文本颜色为黑色，并添加公司名称抬头
+    # 3. 移除公司文字抬头，仅设置文本颜色为黑色
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(w=0, h=10, text="广州市黄金假日国际旅行社有限公司", align='C', new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
     
     # 4. 黑色渲染清单小标题
     pdf.set_font("SimSun", size=14)
