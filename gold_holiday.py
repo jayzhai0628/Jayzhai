@@ -141,14 +141,14 @@ CITIES = {
     "新加坡":"Asia/Singapore", "曼谷":"Asia/Bangkok", "吉隆坡":"Asia/Kuala_Lumpur", "迪拜":"Asia/Dubai", "伦敦":"Europe/London", 
     "巴黎":"Europe/Paris", "柏林":"Europe/Berlin", "罗马":"Europe/Rome", "马德里":"Europe/Madrid", "莫斯科":"Europe/Moscow", 
     "苏黎世":"Europe/Zurich", "纽约":"America/New_York", "洛杉矶":"America/Los_Angeles", "多伦多":"America/Toronto", "温哥华":"America/Vancouver", 
-    "悉尼":"Australia/Sydney", "墨尔本":"Australia/Melbourne", "奥克兰":"Pacific/Auckland", "新德里":"Asia/Kolkata", "伊斯坦布尔":"Europe/Istanbul",
+    "悉悉尼":"Australia/Sydney", "墨尔本":"Australia/Melbourne", "奥克兰":"Pacific/Auckland", "新德里":"Asia/Kolkata", "伊斯坦布尔":"Europe/Istanbul",
     "开罗":"Africa/Cairo", "约翰内斯堡":"Africa/Johannesburg", "雅典":"Europe/Athens", "阿姆斯特丹":"Europe/Amsterdam", "芝加哥":"America/Chicago"
 }
 
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 
 # ==========================================
-# 4. PDF 生成逻辑 (带防呆云端报错机制)
+# 4. PDF 生成逻辑 (带终极全自动文件夹扫描机制)
 # ==========================================
 def generate_pdf(title_text, items):
     pdf = FPDF()
@@ -157,20 +157,45 @@ def generate_pdf(title_text, items):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, "simsun.ttf")
     
-    # 强制锁定此文件名
-    logo_path = os.path.join(base_dir, "image_743d5f.jpg")
     warning_msg = None
+    logo_path = None
+    
+    # 终极扫描策略：1. 明确的可能名称（兼顾大小写）
+    possible_names = [
+        "image_743d5f.jpg", "image_743d5f.JPG", 
+        "image_fed5fe.jpg", "image_fed5fe.JPG",
+        "logo.jpg", "logo.png"
+    ]
+    
+    for name in possible_names:
+        abs_p = os.path.join(base_dir, name)
+        if os.path.exists(abs_p):
+            logo_path = abs_p
+            break
+        elif os.path.exists(name): # 回退使用相对路径
+            logo_path = name
+            break
             
+    # 终极扫描策略：2. 如果没找到指定名字，自动扫描目录下的第一张图片作为抬头
+    if not logo_path:
+        try:
+            for file in os.listdir(base_dir):
+                if file.lower().endswith(('.png', '.jpg', '.jpeg')) and ('image_' in file.lower() or 'logo' in file.lower()):
+                    logo_path = os.path.join(base_dir, file)
+                    break
+        except Exception:
+            pass
+
     # 图片云端加载诊断逻辑
-    if os.path.exists(logo_path):
+    if logo_path:
         try:
             pdf.image(logo_path, x=0, y=0, w=210)
             pdf.set_y(38) # 图片加载成功，游标下移避开图片区域
         except Exception as e: 
-            warning_msg = f"⚠️ 图片存在但云端服务器解析失败！错误代码：{e}。解决办法：请务必在您的 requirements.txt 中加上 Pillow 这行字，然后重新部署。"
+            warning_msg = f"⚠️ 找到了图片文件 {os.path.basename(logo_path)}，但服务器解析失败！错误代码：{e}。解决办法：请在 requirements.txt 中加上 Pillow。"
             pdf.set_y(15)
     else: 
-        warning_msg = "⚠️ 云端服务器未找到图片 image_743d5f.jpg，请检查是否已推送到线上代码库中，且大小写必须完全一致！"
+        warning_msg = "⚠️ 云端服务器文件夹中没有找到任何图片！请务必确认抬头图片（如 image_743d5f.jpg）已成功 Push/上传 到了云端代码库中！"
         pdf.set_y(15)
 
     # 设置字体
