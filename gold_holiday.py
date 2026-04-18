@@ -148,7 +148,7 @@ CITIES = {
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 
 # ==========================================
-# 4. PDF 生成逻辑 (已优化坐标适配)
+# 4. PDF 生成逻辑 (移除重复的文字抬头)
 # ==========================================
 def generate_pdf(title_text, items):
     pdf = FPDF()
@@ -157,24 +157,29 @@ def generate_pdf(title_text, items):
     font_path = os.path.join(base_dir, "simsun.ttf")
     logo_path = os.path.join(base_dir, "image_743d5f.jpg")
     
+    # 1. 尝试插入图片抬头
     if os.path.exists(logo_path):
         try:
             pdf.image(logo_path, x=0, y=0, w=210)
             pdf.set_y(35)
-        except: pdf.ln(20)
-    else: pdf.ln(20)
+        except: pdf.ln(15)
+    else: pdf.ln(15)
 
+    # 2. 设置字体
     if os.path.exists(font_path):
         pdf.add_font("SimSun", style="", fname=font_path)
-        pdf.set_font("SimSun", size=16)
-    else: pdf.set_font("Helvetica", size=16)
+        pdf.set_font("SimSun", size=18)
+    else: pdf.set_font("Helvetica", size=18)
 
-    # 黑色渲染标题
+    # 3. 移除多余的文字抬头，确保文本颜色为黑色
     pdf.set_text_color(0, 0, 0)
+    
+    # 4. 黑色渲染清单小标题
+    pdf.set_font("SimSun", size=14)
     pdf.cell(w=0, h=10, text=title_text, align='C', new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
+    pdf.ln(8)
 
-    # 渲染带序号列表
+    # 5. 渲染带序号列表
     pdf.set_font("SimSun", size=11)
     pdf.set_left_margin(25)
     for idx, item in enumerate(items, 1):
