@@ -155,15 +155,26 @@ def generate_pdf(title_text, items):
     pdf.add_page()
     base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, "simsun.ttf")
-    logo_path = os.path.join(base_dir, "image_743d5f.jpg")
     
+    # 智能寻找本地存在的抬头图片文件，防止文件名变更导致图片消失
+    logo_path = None
+    possible_logo_names = ["image_fed5fe.jpg", "image_743d5f.jpg", "logo.jpg", "logo.png", "header.jpg", "header.png"]
+    for img_name in possible_logo_names:
+        temp_path = os.path.join(base_dir, img_name)
+        if os.path.exists(temp_path):
+            logo_path = temp_path
+            break
+            
     # 1. 尝试插入图片抬头 (保留图片)
-    if os.path.exists(logo_path):
+    if logo_path:
         try:
             pdf.image(logo_path, x=0, y=0, w=210)
-            pdf.set_y(35)
-        except: pdf.ln(15)
-    else: pdf.ln(15)
+            pdf.set_y(35) # 为下方文字留出空间
+        except Exception as e: 
+            print(f"图片加载失败: {e}")
+            pdf.ln(15)
+    else: 
+        pdf.ln(15)
 
     # 2. 设置字体
     if os.path.exists(font_path):
@@ -171,7 +182,7 @@ def generate_pdf(title_text, items):
         pdf.set_font("SimSun", size=18)
     else: pdf.set_font("Helvetica", size=18)
 
-    # 3. 移除公司文字抬头，仅设置文本颜色为黑色
+    # 3. 确保文本颜色为黑色 (公司文字抬头已移除)
     pdf.set_text_color(0, 0, 0)
     
     # 4. 黑色渲染清单小标题
