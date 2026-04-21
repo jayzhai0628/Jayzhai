@@ -35,6 +35,25 @@ st.markdown("""
         margin-bottom: 15px; display: inline-block; line-height: 1.4;
     }
     .stMarkdown p, .stMarkdown li { color: #333333 !important; }
+    
+    /* 汇率换算按钮对齐微调 - 强制缩短间距并垂直水平居中 */
+    .swap-btn-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        padding-top: 28px;
+    }
+    /* 强制重置按钮外边距以消除间距不均 */
+    div[data-testid="column"]:nth-child(3) button {
+        display: block !important;
+        margin: 0 auto !important;
+    }
+    /* 强制缩小列间距 */
+    [data-testid="stHorizontalBlock"] {
+        gap: 0.5rem !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -42,60 +61,38 @@ st.markdown("""
 # 3. 核心全量数据库 (2026 全球 50 国深度核实版)
 # ==========================================
 def get_verified_db(country, v_type, identity):
-    # --- 国家分类定义 ---
-    # A类：互免签证 (无需任何材料)
     visa_free = ["新加坡", "马来西亚", "泰国", "阿联酋", "卡塔尔", "哈萨克斯坦", "马尔代夫", "斐济", "塞舌尔", "毛里求斯", "阿尔巴尼亚"]
-    
-    # B类：超轻量 ETA/电子签 (无需照片、无需在职、无需户口本、无需行程)
-    # 澳洲现为全数字化申请，无需物理照片；斯里兰卡ETA/土耳其电子签仅需护照信息。
     visa_ultra_light = ["斯里兰卡", "土耳其", "澳大利亚", "新西兰"]
-    
-    # C类：标准电子签 (需护照+照片，无需在职证明和资产)
-    # 越南、俄罗斯、印尼、埃及、柬埔寨等均已实现极简电子化。
     visa_evisa_standard = ["越南", "俄罗斯", "印尼", "埃及", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "尼泊尔"]
-    
-    # D类：申根区 (高门槛：强制保险+指纹+全套资产)
     schengen = ["意大利", "法国", "德国", "瑞士", "荷兰", "西班牙", "希腊", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰"]
 
     base_p = "护照原件/高清扫描件 (有效期6个月以上)"
 
-    # --- 逻辑精准分流 ---
     if country in visa_free:
         policy, desc = "FREE", "🌟 互免签证 (直飞入境)"
         docs = [base_p, "目的地国家电子入境卡 (请在出发前1-3天内完成申报)", "往返机票行程单 (英文版打印备用)", "全程酒店预订单 (英文版打印备查)"]
-
     elif country in visa_ultra_light:
         policy, desc = "ETA", f"📝 {country} 电子授权/签证 (材料极简，无需照片/在职/户口本)"
         if country == "斯里兰卡":
             docs = [base_p, "【免材料】仅需护照信息在线申请 ETA，无需照片、无需行程、无需酒店、无需在职证明"]
         elif country == "澳大利亚":
             docs = [base_p, "【无纸化】仅需护照高清扫描件，无需纸质照片，建议提供基础资产扫描件(无需原件)", "个人基本信息表 (电子版)"]
-        else: # 土耳其/新西兰
+        else:
             docs = [base_p, f"【极简办理】仅需护照信息，无需提供照片及任何工作证明材料"]
-
     elif country in visa_evisa_standard:
         policy, desc = "E-VISA", f"🌍 {country} 电子签 (仅需照片，无需在职/户口本证明)"
         docs = [base_p, "电子版白底照片 (35x45mm)", "往返机票行程单 (英文版)"]
         if country == "越南":
             docs.append("【注】越南电子签仅需护照首页+照片，无需资产证明、无需在职证明。")
-
     else:
-        # 传统签证区 (美、加、英、日、韩、申根、南非、南美等)
         policy, desc = "STICKER", "🛂 传统签证 (需提交完整资产、在职及身份证明材料)"
-        
-        # 照片精度控制
-        if country == "日本": photo = "纸质照片2张 (45x45mm 正方形，白底)"
-        elif country == "美国": photo = "纸质照片2张 (51x51mm 正方形，不戴眼镜)"
+        if country == "日本": photo = "纸纸照片2张 (45x45mm 正方形，白底)"
+        elif country == "美国": photo = "纸纸照片2张 (51x51mm 正方形，不戴眼镜)"
         else: photo = "纸质照片2张 (35x45mm，白底彩照)"
-        
         docs = [base_p, photo, "身份证及户口本整本复印件", "个人信息申请表"]
-        
-        # 申根保险强校验
         if country in schengen:
             docs.append("【强提示】境外医疗保险原件 (保额需达30万人民币/3万欧元以上)")
             docs.append("【指纹录入】需本人亲自前往签证中心录入生物识别信息")
-
-        # 身份细节追加
         if identity == "在职人员":
             docs += ["在职证明原件 (公司红头信笺打印，加盖公章)", "营业执照副本复印件 (加盖公章)", "个人近6个月银行流水 (余额建议5万以上)"]
         elif identity == "退休人员":
@@ -106,12 +103,10 @@ def get_verified_db(country, v_type, identity):
             docs += ["个人收入来源说明信", "近6个月活跃银行流水明细"]
         elif identity == "学龄前儿童":
             docs += ["出生医学证明复印件", "父母结婚证", "【重要】公证书及领事认证 (如非父母双方陪同)"]
-
         docs += ["全程机票/酒店预订单", "详细旅游行程表"]
 
     return desc, docs, policy
 
-# 国家及主流配置
 COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
 CURRENCIES = {"CNY":"人民币", "USD":"美元", "EUR":"欧元", "GBP":"英镑", "JPY":"日元", "HKD":"港币", "AUD":"澳元", "THB":"泰铢", "SGD":"新币", "MYR":"林吉特", "KRW":"韩元", "CAD":"加元", "RUB":"卢布", "NZD":"纽币", "CHF":"瑞郎", "AED":"迪拉姆", "SAR":"沙特里亚尔", "INR":"印度卢比", "IDR":"印尼盾", "PHP":"菲律宾比索", "VND":"越南盾", "EGP":"埃及镑", "ZAR":"南非兰特", "SEK":"瑞典克朗", "TRY":"土耳其里拉", "BRL":"巴西雷亚尔", "MXN":"墨西哥比索", "TWD":"新台币", "MOP":"澳门币"}
 CITIES = {"北京/上海":"Asia/Shanghai", "香港/澳门":"Asia/Hong_Kong", "台北":"Asia/Taipei", "东京":"Asia/Tokyo", "首尔":"Asia/Seoul", "新加坡":"Asia/Singapore", "曼谷":"Asia/Bangkok", "吉隆坡":"Asia/Kuala_Lumpur", "迪拜":"Asia/Dubai", "伦敦":"Europe/London", "巴黎":"Europe/Paris", "柏林":"Europe/Berlin", "罗马":"Europe/Rome", "马德里":"Europe/Madrid", "莫斯科":"Europe/Moscow", "苏黎世":"Europe/Zurich", "纽约":"America/New_York", "洛杉矶":"America/Los_Angeles", "多伦多":"America/Toronto", "温哥华":"America/Vancouver", "悉尼":"Australia/Sydney", "墨尔本":"Australia/Melbourne", "奥克兰":"Pacific/Auckland", "新德里":"Asia/Kolkata", "伊斯坦布尔":"Europe/Istanbul", "开罗":"Africa/Cairo", "约翰内斯堡":"Africa/Johannesburg", "雅典":"Europe/Athens", "阿姆斯特丹":"Europe/Amsterdam", "芝加哥":"America/Chicago"}
@@ -194,16 +189,25 @@ if menu == "🛂 签证/入境材料查询":
     pdf_data = generate_pdf(f"{country}{v_type}材料清单", data)
     st.download_button(label="📥 一键下载材料清单", data=pdf_data, file_name=f"{country}_{identity}_材料清单.pdf", mime="application/pdf")
 
+    st.info("详情请联系客服获取专属材料包\n\n客服联系方式：18924232668（微信同号）")
+
 elif menu == "💱 实时汇率换算":
     st.header("💱 全球主流货币换算")
     if 'base_curr' not in st.session_state: st.session_state.base_curr = 'CNY'
     if 'target_curr' not in st.session_state: st.session_state.target_curr = 'USD'
     def swap_c(): st.session_state.base_curr, st.session_state.target_curr = st.session_state.target_curr, st.session_state.base_curr
-    c1, c2, c3, c4 = st.columns([2.5, 3.5, 1, 3.5])
+    
+    # 强制优化比例与间距：缩小按钮列宽比例 [2.5, 4.2, 0.6, 4.2]，并设置极小间距
+    c1, c2, c3, c4 = st.columns([2.5, 4.2, 0.6, 4.2], gap="small")
     with c1: amt = st.number_input("金额", value=100.0, min_value=0.0)
     with c2: base = st.selectbox("持有", sorted(list(CURRENCIES.keys())), key="base_curr", format_func=lambda x: f"{x}-{CURRENCIES[x]}")
-    with c3: st.markdown("<br>", unsafe_allow_html=True); st.button("🔄", on_click=swap_c)
+    with c3: 
+        # 强制居中容器
+        st.markdown('<div class="swap-btn-container">', unsafe_allow_html=True)
+        st.button("🔄", on_click=swap_c, key="swap_exchange")
+        st.markdown('</div>', unsafe_allow_html=True)
     with c4: target = st.selectbox("目标", sorted(list(CURRENCIES.keys())), key="target_curr", format_func=lambda x: f"{x}-{CURRENCIES[x]}")
+    
     try:
         r_data = requests.get(f"https://api.exchangerate-api.com/v4/latest/{base}").json()
         rate = r_data['rates'][target]
@@ -222,3 +226,4 @@ elif menu == "⏰ 全球时差查询":
     with tc2: st.metric(f"📍 {city} 时间", ct.strftime('%H:%M'), ct.strftime('%m-%d'))
 
 st.markdown("<br><br><center>© 2026 广州市黄金假日国际旅行社有限公司</center>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:0.8rem; color:#888;'>免责声明： ⚠️ 签证政策实时变动，本清单仅供参考。最终办理材料请以领馆当日要求为准。</p>", unsafe_allow_html=True)
