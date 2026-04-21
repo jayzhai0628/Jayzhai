@@ -5,6 +5,7 @@ import pytz
 from fpdf import FPDF
 import io
 import os
+import json  # 💡 新增：导入处理 JSON 的库
 
 # --- 1. 页面配置 ---
 st.set_page_config(
@@ -36,7 +37,7 @@ st.markdown("""
     }
     .stMarkdown p, .stMarkdown li { color: #333333 !important; }
     
-    /* 汇率换算按钮对齐微调 - 强制缩短间距并垂直水平居中 */
+    /* 汇率换算按钮对齐微调 */
     .swap-btn-container {
         display: flex;
         align-items: center;
@@ -45,12 +46,10 @@ st.markdown("""
         height: 100%;
         padding-top: 28px;
     }
-    /* 强制重置按钮外边距以消除间距不均 */
     div[data-testid="column"]:nth-child(3) button {
         display: block !important;
         margin: 0 auto !important;
     }
-    /* 强制缩小列间距 */
     [data-testid="stHorizontalBlock"] {
         gap: 0.5rem !important;
     }
@@ -58,61 +57,41 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 核心全量数据库 (2026 全球 50 国深度核实版)
+# 3. 💡 新增：数据库读取逻辑 💡
 # ==========================================
-def get_verified_db(country, v_type, identity):
-    visa_free = ["新加坡", "马来西亚", "泰国", "阿联酋", "卡塔尔", "哈萨克斯坦", "马尔代夫", "斐济", "塞舌尔", "毛里求斯", "阿尔巴尼亚"]
-    visa_ultra_light = ["斯里兰卡", "土耳其", "澳大利亚", "新西兰"]
-    visa_evisa_standard = ["越南", "俄罗斯", "印尼", "埃及", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "尼泊尔"]
-    schengen = ["意大利", "法国", "德国", "瑞士", "荷兰", "西班牙", "希腊", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰"]
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(BASE_DIR, "local_database.json")
 
-    base_p = "护照原件/高清扫描件 (有效期6个月以上)"
+def load_local_db():
+    """从 local_database.json 加载全量数据"""
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"数据库解析失败: {e}")
+            return {}
+    return {}
 
-    if country in visa_free:
-        policy, desc = "FREE", "🌟 互免签证 (直飞入境)"
-        docs = [base_p, "目的地国家电子入境卡 (请在出发前1-3天内完成申报)", "往返机票行程单 (英文版打印备用)", "全程酒店预订单 (英文版打印备查)"]
-    elif country in visa_ultra_light:
-        policy, desc = "ETA", f"📝 {country} 电子授权/签证 (材料极简，无需照片/在职/户口本)"
-        if country == "斯里兰卡":
-            docs = [base_p, "【免材料】仅需护照信息在线申请 ETA，无需照片、无需行程、无需酒店、无需在职证明"]
-        elif country == "澳大利亚":
-            docs = [base_p, "【无纸化】仅需护照高清扫描件，无需纸质照片，建议提供基础资产扫描件(无需原件)", "个人基本信息表 (电子版)"]
-        else:
-            docs = [base_p, f"【极简办理】仅需护照信息，无需提供照片及任何工作证明材料"]
-    elif country in visa_evisa_standard:
-        policy, desc = "E-VISA", f"🌍 {country} 电子签 (仅需照片，无需在职/户口本证明)"
-        docs = [base_p, "电子版白底照片 (35x45mm)", "往返机票行程单 (英文版)"]
-        if country == "越南":
-            docs.append("【注】越南电子签仅需护照首页+照片，无需资产证明、无需在职证明。")
-    else:
-        policy, desc = "STICKER", "🛂 传统签证 (需提交完整资产、在职及身份证明材料)"
-        if country == "日本": photo = "纸纸照片2张 (45x45mm 正方形，白底)"
-        elif country == "美国": photo = "纸纸照片2张 (51x51mm 正方形，不戴眼镜)"
-        else: photo = "纸质照片2张 (35x45mm，白底彩照)"
-        docs = [base_p, photo, "身份证及户口本整本复印件", "个人信息申请表"]
-        if country in schengen:
-            docs.append("【强提示】境外医疗保险原件 (保额需达30万人民币/3万欧元以上)")
-            docs.append("【指纹录入】需本人亲自前往签证中心录入生物识别信息")
-        if identity == "在职人员":
-            docs += ["在职证明原件 (公司红头信笺打印，加盖公章)", "营业执照副本复印件 (加盖公章)", "个人近6个月银行流水 (余额建议5万以上)"]
-        elif identity == "退休人员":
-            docs += ["退休证复印件", "养老金账户近6个月流水账单"]
-        elif identity == "在校学生":
-            docs += ["在校证明原件", "出生医学证明复印件", "父母资产及委托证明"]
-        elif identity == "自由职业者":
-            docs += ["个人收入来源说明信", "近6个月活跃银行流水明细"]
-        elif identity == "学龄前儿童":
-            docs += ["出生医学证明复印件", "父母结婚证", "【重要】公证书及领事认证 (如非父母双方陪同)"]
-        docs += ["全程机票/酒店预订单", "详细旅游行程表"]
+# 预加载数据
+DATABASE = load_local_db()
 
-    return desc, docs, policy
+# 获取所有可查询的国家列表
+if DATABASE:
+    # 从 JSON 的 Key 中提取国家名称 (例如 "日本_旅游签_在职人员" 提取出 "日本")
+    COUNTRIES_LIST = sorted(list(set([k.split('_')[0] for k in DATABASE.keys()])))
+else:
+    # 备用列表
+    COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚"]
 
-COUNTRIES_LIST = ["意大利", "日本", "美国", "英国", "法国", "德国", "澳大利亚", "新加坡", "泰国", "马来西亚", "韩国", "加拿大", "越南", "新西兰", "瑞士", "荷兰", "西班牙", "希腊", "阿联酋", "土耳其", "俄罗斯", "菲律宾", "印度", "印尼", "埃及", "南非", "瑞典", "奥地利", "葡萄牙", "丹麦", "比利时", "捷克", "匈牙利", "冰岛", "芬兰", "波兰", "爱尔兰", "以色列", "柬埔寨", "缅甸", "老挝", "文莱", "沙特", "卡塔尔", "尼泊尔", "斯里兰卡", "巴西", "阿根廷", "墨西哥", "智利"]
+# ==========================================
+# 4. 常量定义 (汇率与时差保持不变)
+# ==========================================
 CURRENCIES = {"CNY":"人民币", "USD":"美元", "EUR":"欧元", "GBP":"英镑", "JPY":"日元", "HKD":"港币", "AUD":"澳元", "THB":"泰铢", "SGD":"新币", "MYR":"林吉特", "KRW":"韩元", "CAD":"加元", "RUB":"卢布", "NZD":"纽币", "CHF":"瑞郎", "AED":"迪拉姆", "SAR":"沙特里亚尔", "INR":"印度卢比", "IDR":"印尼盾", "PHP":"菲律宾比索", "VND":"越南盾", "EGP":"埃及镑", "ZAR":"南非兰特", "SEK":"瑞典克朗", "TRY":"土耳其里拉", "BRL":"巴西雷亚尔", "MXN":"墨西哥比索", "TWD":"新台币", "MOP":"澳门币"}
 CITIES = {"北京/上海":"Asia/Shanghai", "香港/澳门":"Asia/Hong_Kong", "台北":"Asia/Taipei", "东京":"Asia/Tokyo", "首尔":"Asia/Seoul", "新加坡":"Asia/Singapore", "曼谷":"Asia/Bangkok", "吉隆坡":"Asia/Kuala_Lumpur", "迪拜":"Asia/Dubai", "伦敦":"Europe/London", "巴黎":"Europe/Paris", "柏林":"Europe/Berlin", "罗马":"Europe/Rome", "马德里":"Europe/Madrid", "莫斯科":"Europe/Moscow", "苏黎世":"Europe/Zurich", "纽约":"America/New_York", "洛杉矶":"America/Los_Angeles", "多伦多":"America/Toronto", "温哥华":"America/Vancouver", "悉尼":"Australia/Sydney", "墨尔本":"Australia/Melbourne", "奥克兰":"Pacific/Auckland", "新德里":"Asia/Kolkata", "伊斯坦布尔":"Europe/Istanbul", "开罗":"Africa/Cairo", "约翰内斯堡":"Africa/Johannesburg", "雅典":"Europe/Athens", "阿姆斯特丹":"Europe/Amsterdam", "芝加哥":"America/Chicago"}
 
 # ==========================================
-# 4. PDF 生成
+# 5. PDF 生成逻辑 (适配新 JSON 结构)
 # ==========================================
 def generate_pdf(title_text, items):
     pdf = FPDF()
@@ -149,7 +128,7 @@ def generate_pdf(title_text, items):
     return bytes(pdf.output())
 
 # ==========================================
-# 5. 交互界面
+# 6. 交互界面
 # ==========================================
 st.sidebar.markdown("# 🏆 功能中心")
 menu = st.sidebar.radio("请选择操作项目：", ["🛂 签证/入境材料查询", "💱 实时汇率换算", "⏰ 全球时差查询"])
@@ -161,34 +140,51 @@ st.markdown('<hr style="border: none; height: 3px; background-image: linear-grad
 
 if menu == "🛂 签证/入境材料查询":
     c1, c2, c3 = st.columns(3)
-    with c1: country = st.selectbox("📌 选择目的地", sorted(COUNTRIES_LIST))
+    with c1: country = st.selectbox("📌 选择目的地", COUNTRIES_LIST)
     with c2: v_type = st.selectbox("🎫 签证类型", ["旅游签", "商务签", "探亲签"])
     with c3: identity = st.selectbox("👤 申请人身份", ["在职人员", "退休人员", "在校学生", "自由职业者", "学龄前儿童"])
 
-    desc, data, policy = get_verified_db(country, v_type, identity)
-    
-    color_map = {"FREE":"#D4EDDA", "ETA":"#E2F0FB", "E-VISA":"#FFF3CD", "STICKER":"#F8D7DA"}
-    txt_map = {"FREE":"#155724", "ETA":"#004085", "E-VISA":"#856404", "STICKER":"#721C24"}
-    st.markdown(f'<div class="policy-tag" style="background-color:{color_map[policy]}; color:{txt_map[policy]};">{desc}</div>', unsafe_allow_html=True)
+    # 💡 逻辑修改：从加载的 DATABASE 中获取数据
+    search_key = f"{country}_{v_type}_{identity}"
+    record = DATABASE.get(search_key)
 
-    st.markdown(f"### {country} ({v_type}) 材料清单")
-    
-    items_html = ""
-    for i, item in enumerate(data, 1):
-        items_html += f"""<div style="display: flex; margin-bottom: 12px; align-items: flex-start;">
-<div style="background-color: #D4AF37; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; margin-right: 12px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">{i}</div>
-<div style="color: #333; line-height: 1.5; font-size: 14px;">{item}</div>
-</div>"""
+    if record:
+        content = record['content']
+        data = content['material_list']
+        desc = content['status_title']
+        policy = content['cat']
         
-    card_html = f"""<div class="material-card">
-<div style="position: absolute; top: -15px; right: -15px; font-size: 80px; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">✈️</div>
-{items_html}
-</div>"""
-    st.markdown(card_html, unsafe_allow_html=True)
+        # 标签颜色匹配
+        color_map = {"FREE":"#D4EDDA", "EVISA":"#FFF3CD", "STICKER":"#F8D7DA"}
+        txt_map = {"FREE":"#155724", "EVISA":"#856404", "STICKER":"#721C24"}
+        st.markdown(f'<div class="policy-tag" style="background-color:{color_map.get(policy, "#E2F0FB")}; color:{txt_map.get(policy, "#004085")};">{desc}</div>', unsafe_allow_html=True)
 
-    pdf_data = generate_pdf(f"{country}{v_type}材料清单", data)
-    st.download_button(label="📥 一键下载材料清单", data=pdf_data, file_name=f"{country}_{identity}_材料清单.pdf", mime="application/pdf")
+        st.markdown(f"### {country} ({v_type}) 材料清单")
+        
+        items_html = ""
+        for i, item in enumerate(data, 1):
+            items_html += f"""<div style="display: flex; margin-bottom: 12px; align-items: flex-start;">
+    <div style="background-color: #D4AF37; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; margin-right: 12px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">{i}</div>
+    <div style="color: #333; line-height: 1.5; font-size: 14px;">{item}</div>
+    </div>"""
+            
+        card_html = f"""<div class="material-card">
+    <div style="position: absolute; top: -15px; right: -15px; font-size: 80px; opacity: 0.05; transform: rotate(15deg); pointer-events: none;">✈️</div>
+    {items_html}
+    </div>"""
+        st.markdown(card_html, unsafe_allow_html=True)
+        
+        # 专家建议展示
+        if content.get('expert_tips'):
+            st.info("\n".join([f"💡 {tip}" for tip in content['expert_tips']]))
 
+        pdf_data = generate_pdf(f"{country}{v_type}材料清单", data)
+        st.download_button(label="📥 一键下载材料清单", data=pdf_data, file_name=f"{country}_{identity}_材料清单.pdf", mime="application/pdf")
+
+    else:
+        st.warning(f"⚠️ 暂无 {country} ({v_type}) 针对 {identity} 的本地记录。")
+
+    # 底部固定内容
     st.info("详情请联系客服获取专属材料包\n\n客服联系方式：18924232668（微信同号）")
 
 elif menu == "💱 实时汇率换算":
@@ -197,12 +193,10 @@ elif menu == "💱 实时汇率换算":
     if 'target_curr' not in st.session_state: st.session_state.target_curr = 'USD'
     def swap_c(): st.session_state.base_curr, st.session_state.target_curr = st.session_state.target_curr, st.session_state.base_curr
     
-    # 强制优化比例与间距：缩小按钮列宽比例 [2.5, 4.2, 0.6, 4.2]，并设置极小间距
     c1, c2, c3, c4 = st.columns([2.5, 4.2, 0.6, 4.2], gap="small")
     with c1: amt = st.number_input("金额", value=100.0, min_value=0.0)
     with c2: base = st.selectbox("持有", sorted(list(CURRENCIES.keys())), key="base_curr", format_func=lambda x: f"{x}-{CURRENCIES[x]}")
     with c3: 
-        # 强制居中容器
         st.markdown('<div class="swap-btn-container">', unsafe_allow_html=True)
         st.button("🔄", on_click=swap_c, key="swap_exchange")
         st.markdown('</div>', unsafe_allow_html=True)
