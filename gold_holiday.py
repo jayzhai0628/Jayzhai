@@ -46,7 +46,7 @@ st.markdown("""
         line-height: 1.5 !important;
     }
     
-    /* 下载按钮样式：确保独立占行，增加间距防止重叠 */
+    /* 下载按钮样式 */
     .stDownloadButton { margin-top: 10px !important; margin-bottom: 15px !important; }
     .stDownloadButton>button {
         width: 100% !important; max-width: 280px; 
@@ -57,7 +57,7 @@ st.markdown("""
         color: white !important; font-weight: bold;
     }
     
-    /* 专家建议文字：增加垂直间距 */
+    /* 专家建议文字 */
     .expert-tips-text {
         color: #555; 
         font-size: 0.95rem; 
@@ -66,7 +66,7 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* 客服联系信息区：移除负边距，采用正常边距 */
+    /* 客服联系信息区 */
     .custom-contact-container {
         margin-top: 15px !important;
         padding: 15px 0;
@@ -104,10 +104,32 @@ if DATABASE:
 else:
     COUNTRIES_LIST = ["日本", "意大利", "美国", "英国", "法国"]
 
-CURRENCIES = {"CNY":"人民币", "USD":"美元", "EUR":"欧元", "GBP":"英镑", "JPY":"日元", "HKD":"港币", "AUD":"澳元", "THB":"泰铢", "SGD":"新币", "MYR":"林吉特", "KRW":"韩元", "CAD":"加元", "RUB":"卢布", "NZD":"纽币", "CHF":"瑞郎"}
-CITIES = {"北京/上海":"Asia/Shanghai", "香港/澳门":"Asia/Hong_Kong", "台北":"Asia/Taipei", "伦敦":"Europe/London", "巴黎":"Europe/Paris", "纽约":"America/New_York", "东京":"Asia/Tokyo"}
+# --- 数据配置 ---
+CURRENCIES = {
+    "CNY":"人民币", "USD":"美元", "EUR":"欧元", "GBP":"英镑", "JPY":"日元", 
+    "HKD":"港币", "AUD":"澳元", "THB":"泰铢", "SGD":"新币", "MYR":"林吉特", 
+    "KRW":"韩元", "CAD":"加元", "RUB":"卢布", "NZD":"纽币", "CHF":"瑞郎",
+    "AED":"阿联酋迪拉姆", "SAR":"沙特里亚尔", "TRY":"土耳其里拉", "VND":"越南盾", "IDR":"印尼卢比",
+    "PHP":"菲律宾比索", "INR":"印度卢比", "ZAR":"南非兰特", "SEK":"瑞典克朗", "DKK":"丹麦克朗",
+    "NOK":"挪威克朗", "PLN":"波兰兹罗提", "BRL":"巴西雷亚尔", "MXN":"墨西哥比索", "EGP":"埃及镑",
+    "MOP":"澳门元", "TWD":"新台币"
+}
 
-# --- 4. 优化后的 PDF 生成函数 (不带文字抬头) ---
+CITIES = {
+    "北京/上海 (中国)":"Asia/Shanghai", "香港/澳门 (中国)":"Asia/Hong_Kong", "台北 (中国台湾)":"Asia/Taipei", 
+    "伦敦 (英国)":"Europe/London", "巴黎 (法国)":"Europe/Paris", "纽约 (美国)":"America/New_York", 
+    "东京 (日本)":"Asia/Tokyo", "悉尼 (澳大利亚)":"Australia/Sydney", "洛杉矶 (美国)":"America/Los_Angeles", 
+    "芝加哥 (美国)":"America/Chicago", "多伦多 (加拿大)":"America/Toronto", "迪拜 (阿联酋)":"Asia/Dubai",
+    "新加坡 (新加坡)":"Asia/Singapore", "曼谷 (泰国)":"Asia/Bangkok", "吉隆坡 (马来西亚)":"Asia/Kuala_Lumpur", 
+    "首尔 (韩国)":"Asia/Seoul", "莫斯科 (俄罗斯)":"Europe/Moscow", "柏林 (德国)":"Europe/Berlin", 
+    "罗马 (意大利)":"Europe/Rome", "马德里 (西班牙)":"Europe/Madrid", "阿姆斯特丹 (荷兰)":"Europe/Amsterdam", 
+    "斯德哥尔摩 (瑞典)":"Europe/Stockholm", "苏黎世 (瑞士)":"Europe/Zurich", "伊斯坦布尔 (土耳其)":"Europe/Istanbul",
+    "开罗 (埃及)":"Africa/Cairo", "约翰内斯堡 (南非)":"Africa/Johannesburg", "圣保罗 (巴西)":"America/Sao_Paulo", 
+    "墨西哥城 (墨西哥)":"America/Mexico_City", "雅加达 (印尼)":"Asia/Jakarta", "马尼拉 (菲律宾)":"Asia/Manila", 
+    "孟买 (印度)":"Asia/Kolkata", "奥克兰 (新西兰)":"Pacific/Auckland"
+}
+
+# --- 4. 优化后的 PDF 生成函数 ---
 def generate_pdf(country, v_type, identity, material_list, expert_tips):
     pdf = FPDF()
     pdf.add_page()
@@ -206,12 +228,12 @@ if menu == "🛂 签证/入境材料查询":
         items_html = "".join([f'<div style="margin-bottom:8px;">{i}. {m}</div>' for i, m in enumerate(content['material_list'], 1)])
         st.markdown(f'<div class="material-card">{items_html}</div>', unsafe_allow_html=True)
         
-        # 2. 网页版专家建议 (带序号) - 独立占行
+        # 2. 网页版专家建议 (带序号)
         if content.get('expert_tips'):
             tips_text = "<br>".join([f"{i}. {tip}" for i, tip in enumerate(content['expert_tips'], 1)])
             st.markdown(f"<div class='expert-tips-text'><b>💡 专家建议：</b><br>{tips_text}</div>", unsafe_allow_html=True)
 
-        # 3. 下载按钮 - 独立占行
+        # 3. 下载按钮
         pdf_data = generate_pdf(country, v_type, identity, content['material_list'], content.get('expert_tips', []))
         st.download_button(label="📥 下载 PDF 材料清单", data=pdf_data, file_name=f"{country}_{identity}_材料清单.pdf", mime="application/pdf")
 
@@ -232,7 +254,7 @@ elif menu == "💱 实时汇率换算":
     def swap_c(): st.session_state.base_curr, st.session_state.target_curr = st.session_state.target_curr, st.session_state.base_curr
     
     c1, c2, c3, c4 = st.columns([2.5, 4.2, 0.6, 4.2], gap="small")
-    with c1: amt = st.number_input("金额", value=100.0)
+    with c1: amt = st.number_input("金额", value=100.0, min_value=0.0)
     with c2: base = st.selectbox("持有", sorted(list(CURRENCIES.keys())), key="base_curr", format_func=lambda x: f"{x}-{CURRENCIES[x]}")
     with c3:
         st.markdown('<div class="swap-btn-container">', unsafe_allow_html=True)
